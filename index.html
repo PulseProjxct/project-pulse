@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Project Pulse</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      background-color: #0a0a0a;
+      color: #00ff88;
+      font-family: 'Courier New', Courier, monospace;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      position: relative;
+    }
+    h1 {
+      font-size: 3em;
+      margin-bottom: 0;
+    }
+    p.tagline {
+      font-size: 1.2em;
+      margin-top: 0.2em;
+      color: #00ffaa;
+    }
+    .countdown {
+      margin-top: 2em;
+      font-size: 2em;
+      font-weight: bold;
+    }
+    .how {
+      margin-top: 3em;
+      max-width: 600px;
+      text-align: center;
+      color: #66ffcc;
+    }
+    footer {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      font-size: 0.9em;
+    }
+    .footer-links a {
+      color: #00ffcc;
+      text-decoration: none;
+      margin-right: 8px;
+    }
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+    canvas#wheel {
+      background: #012207;
+      border-radius: 50%;
+      margin: 20px auto;
+      display: block;
+      max-width: 400px;
+      max-height: 400px;
+      box-shadow: 0 0 15px #00ff88aa;
+    }
+    #result {
+      color: #00ff88;
+      font-size: 1.5rem;
+      text-align: center;
+      min-height: 2em;
+      margin-top: 0.5em;
+    }
+    #startBtn {
+      background-color: #00ff88;
+      color: #0a0a0a;
+      font-size: 1em;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 1em;
+      display: none;
+    }
+    #startBtn:hover {
+      background-color: #00dd77;
+    }
+    #unlockSection {
+      margin-top: 1em;
+    }
+    #passwordInput {
+      padding: 8px;
+      font-size: 1em;
+      border-radius: 4px;
+      border: none;
+      margin-right: 8px;
+    }
+    #submitPasswordBtn {
+      padding: 9px 15px;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      background-color: #00ff88;
+      color: #0a0a0a;
+      cursor: pointer;
+    }
+    #submitPasswordBtn:hover {
+      background-color: #00dd77;
+    }
+  </style>
+</head>
+<body>
+  <h1>Project Pulse</h1>
+  <p class="tagline">The chain still beats.</p>
+
+  <div class="countdown" id="timer">Waiting to launch...</div>
+
+  <div id="unlockSection">
+    <button id="unlockBtn">Unlock Timer</button>
+    <span id="passwordArea" style="display:none;">
+      <input type="password" id="passwordInput" placeholder="Enter password" />
+      <button id="submitPasswordBtn">Submit</button>
+    </span>
+  </div>
+
+  <button id="startBtn">Start Countdown</button>
+
+  <div class="how">
+    <p>Every 24 hours, 5 options, 1 Coin.</p>
+    <p>50% of fees invested into the new coin and supply locked. 50% of fees reinvested into the $PULSE and locked.</p>
+    <p>The rhythm never stops.</p>
+    <p>Our Saviour. The Genesis of tokens.</p>
+    <p>This is Project Pulse. A chain of success.</p>
+  </div>
+
+  <canvas id="wheel" width="400" height="400"></canvas>
+  <p id="result"></p>
+
+  <footer>
+    <div class="footer-links">
+      <a href="https://twitter.com/projxct_pulse" target="_blank">Twitter</a> |
+      <a href="https://bags.fm/" target="_blank">BagsApp</a>
+    </div>
+  </footer>
+
+  <script>
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const resultP = document.getElementById("result");
+    const startBtn = document.getElementById("startBtn");
+    const timerEl = document.getElementById("timer");
+    const unlockBtn = document.getElementById("unlockBtn");
+    const passwordArea = document.getElementById("passwordArea");
+    const passwordInput = document.getElementById("passwordInput");
+    const submitPasswordBtn = document.getElementById("submitPasswordBtn");
+
+    const coins = ["$(SOON)", "$(SOON)", "$(SOON)", "$(SOON)", "$(SOON)"];
+    const colors = ["#009900", "#00cc00", "#33cc33", "#66ff66", "#99ff99"];
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(centerX, centerY) - 10;
+    const numSegments = coins.length;
+    const segmentAngle = (2 * Math.PI) / numSegments;
+
+    let currentAngle = 0;
+    let isSpinning = false;
+    let countdownInterval;
+    let countdownRunning = false;
+    const countdownSeconds = 24 * 60 * 60;
+    let remainingSeconds = countdownSeconds;
+
+    // LocalStorage keys
+    const STORAGE_UNLOCKED = "projectPulse_timerUnlocked";
+    const STORAGE_STARTTIME = "projectPulse_timerStart";
+
+    const SECRET_CODE = "Retro123";
+
+    // Check if timer is unlocked on load
+    let timerUnlocked = localStorage.getItem(STORAGE_UNLOCKED) === "true";
+
+    // Check if countdown has started before, get stored start time
+    let storedStartTime = localStorage.getItem(STORAGE_STARTTIME);
+    if (storedStartTime) {
+      storedStartTime = parseInt(storedStartTime, 10);
+    }
+
+    // Draw wheel function
+    function drawWheel() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < numSegments; i++) {
+        const startAngle = i * segmentAngle + currentAngle;
+        const endAngle = startAngle + segmentAngle;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+        ctx.strokeStyle = "#003300";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(startAngle + segmentAngle / 2);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#002200";
+        ctx.font = "bold 16px Courier New";
+        ctx.fillText(coins[i], radius - 10, 5);
+        ctx.restore();
+      }
+
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
+      ctx.fillStyle = "#003300";
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY - radius - 10);
+      ctx.lineTo(centerX - 20, centerY - radius + 20);
+      ctx.lineTo(centerX + 20, centerY - radius + 20);
+      ctx.closePath();
+      ctx.fillStyle = "#00ff88";
+      ctx.fill();
+    }
+
+    // Easing function for spin animation
+    function easeOut(t) {
+      return t * (2 - t);
+    }
+
+    // Spin the wheel function
+    function spinWheel() {
+      if (isSpinning) return;
+      isSpinning = true;
+      resultP.innerText = "";
+
+      const spinTimeTotal = 5000;
+      const start = performance.now();
+
+      function animate(now) {
+        const elapsed = now - start;
+        if (elapsed < spinTimeTotal) {
+          const t = elapsed / spinTimeTotal;
+          currentAngle = easeOut(t) * 10 * 2 * Math.PI;
+          drawWheel();
+          requestAnimationFrame(animate);
+        } else {
+          currentAngle %= 2 * Math.PI;
+          drawWheel();
+
+          const index = Math.floor(
+            (numSegments - (currentAngle / segmentAngle)) % numSegments
+          );
+          const winner = coins[index < 0 ? index + numSegments : index];
+          resultP.innerText = `Chosen coin: ${winner}`;
+          isSpinning = false;
+
+          // Reset countdown start time to now
+          const nowTime = Date.now();
+          localStorage.setItem(STORAGE_STARTTIME, nowTime.toString());
+          remainingSeconds = countdownSeconds;
+          startCountdown(true); // restart countdown silently
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    // Format seconds to hh:mm:ss
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    // Update the countdown timer display
+    function updateTimer() {
+      timerEl.innerText = `Next spin in: ${formatTime(remainingSeconds)}`;
+    }
+
+    // Start countdown function, silent param prevents showing alerts/buttons
+    function startCountdown(silent = false) {
+      if (countdownRunning) return;
+      countdownRunning = true;
+
+      if (!silent) {
+        alert("Countdown started! The wheel will spin automatically every 24 hours.");
+      }
+
+      updateTimer();
+
+      countdownInterval = setInterval(() => {
+        remainingSeconds--;
+        updateTimer();
+        if (remainingSeconds <= 0) {
+          clearInterval(countdownInterval);
+          countdownRunning = false;
+          spinWheel();
+        }
+      }, 1000);
+    }
+
+    // Calculate remaining seconds from stored start time
+    function calculateRemainingSeconds() {
+      if (!storedStartTime) return countdownSeconds;
+      const elapsedMS = Date.now() - storedStartTime;
+      const elapsedSec = Math.floor(elapsedMS / 1000);
+      return countdownSeconds - elapsedSec;
+    }
+
+    // On unlock button click - show password input
+    unlockBtn.addEventListener("click", () => {
+      if (timerUnlocked) {
+        alert("Timer is already unlocked!");
+        return;
+      }
+      passwordArea.style.display = "inline-block";
+      unlockBtn.style.display = "none";
+      passwordInput.focus();
+    });
+
+    // On password submit button click
+    submitPasswordBtn.addEventListener("click", () => {
+      const input = passwordInput.value;
+      if (input === SECRET_CODE) {
+        timerUnlocked = true;
+        localStorage.setItem(STORAGE_UNLOCKED, "true");
+        passwordArea.style.display = "none";
+        startBtn.style.display = "inline-block";
+        alert("Timer unlocked! Please click 'Start Countdown' to begin the 24-hour cycle.");
+      } else {
+        alert("Incorrect password. Try again.");
+        passwordInput.value = "";
+        passwordInput.focus();
+      }
+    });
+
+    // On start countdown click
+    startBtn.addEventListener("click", () => {
+      startBtn.style.display = "none";
+      const nowTime = Date.now();
+      localStorage.setItem(STORAGE_STARTTIME, nowTime.toString());
+      remainingSeconds = countdownSeconds;
+      startCountdown();
+    });
+
+    // Initialization on page load
+    function init() {
+      drawWheel();
+
+      if (timerUnlocked) {
+        unlockBtn.style.display = "none";
+        passwordArea.style.display = "none";
+        // Show startBtn only if countdown hasn't started yet
+        if (!storedStartTime) {
+          startBtn.style.display = "inline-block";
+        } else {
+          startBtn.style.display = "none";
+          remainingSeconds = calculateRemainingSeconds();
+          // If remainingSeconds <= 0, spin the wheel immediately, else start countdown
+          if (remainingSeconds <= 0) {
+            spinWheel();
+          } else {
+            startCountdown(true);
+          }
+        }
+      } else {
+        unlockBtn.style.display = "inline-block";
+        passwordArea.style.display = "none";
+        startBtn.style.display = "none";
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
